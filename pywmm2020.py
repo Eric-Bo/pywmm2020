@@ -1,6 +1,12 @@
-import scipy
+from scipy.special import lpmn
 import numpy as np
 from loader import load_coeff
+
+"""
+this script follows the computation outlined in the 
+The US/UKWorld Magnetic Model for 2020-2025
+document
+"""
 
 # degree of expansion of sperical harmonics
 N = 12
@@ -41,9 +47,9 @@ def transform_to_spherical(lamb, phi, h):
     p = (R_c + h) * np.cos(phi)
     z = (R_c * (1 - e_squared) + h) * np.sin(phi)
     r = np.sqrt(p**2 + z**2)
-    phi_s = np.arcsin(z / r)
+    phi_prime = np.arcsin(z / r)
 
-    return lamb, phi_s, r
+    return lamb, phi_prime, r
 
 
 def g(n, m, t):
@@ -60,6 +66,42 @@ def h(n, m, t):
     return h_t0[n, m] + (t - t0) * h_dot[n, m]
 
 
+def s_legendre(m, n, phi):
+    """
+    the Schmidt semi-normalized associated Legendre functions 
+    returns the value at poit phi 
+    """
+    if m == 0:
+        return lpmn(m, n, phi)[0][-1,-1]
+    else:
+        normalization = np.sqrt(2 * np.math.factorial(n - m) / 
+                                np.math.factorial(n + m))
+        return normalization * lpmn(m, n, phi)[0][-1,-1]
+
+
+def pnm_der(m, n, phi):
+    """
+    return the deivative in regard to phi of the associated legendre wih 
+    sin(phi) as an argument
+    """
+    sum1 = (n + 1) * np.tan(phi) * s_legendre(m, n, np.sin(phi))
+    sum2 = np.sqrt((n+1)**2 - m**2) * (1/np.cos(phi)) * \
+                s_legendre(m, n, np.sin(phi))
+    return sum1 - sum2
+
+
+def x_prime(lamb, phi_prime, r, t):
+    result = 0
+    for n in range(1, N+1):
+        inner_result = 0
+        for m in range(n+1):
+            prod1 = g(n, m, t) * np.cos(m * lamb) + h(n, m, t) * np.sin(m*lamb)
+            prod2 = pnm_der(m, n, phi_prime)
+            inner_result += prod1 * prod2
+        result += inner_result * (a / r)**(n + 2)
+    return result
+
+
 if __name__ == "__main__":
     # numerical example
     t = 2022.5
@@ -69,6 +111,8 @@ if __name__ == "__main__":
     glat = glat * (np.pi/180)
     glon = glon * (np.pi/180)
     #print(transform_to_spherical(glon, glat, alt_km))
+    lamb, phi_prime, r = transform_to_spherical(glon, glat, alt_km)
+    """
     print(g(1,0,t))
     print(g(1,1,t))
     print(g(2,0,t))
@@ -79,3 +123,6 @@ if __name__ == "__main__":
     print(h(2,0,t))
     print(h(2,1,t))
     print(h(2,2,t))
+    """
+    #print(s_legendre(1,1,phi_prime))
+    print(x_prime(lamb, phi_prime, r, t))
