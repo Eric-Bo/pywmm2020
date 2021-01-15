@@ -55,39 +55,35 @@ def transform_to_spherical(lamb, phi, h):
 
 def g(n, m, t):
     t0 = 2020.0
-    if t == t0:
-        return g_t0[n, m]
     return g_t0[n, m] + (t - t0) * g_dot[n, m]
 
 
 def h(n, m, t):
     t0 = 2020.0
-    if t == t0:
-        return h_t0[n, m]
     return h_t0[n, m] + (t - t0) * h_dot[n, m]
 
 
-def s_legendre(m, n, phi):
+def s_legendre(m, n, phi_prime):
     """
     the Schmidt semi-normalized associated Legendre functions 
     returns the value at poit phi 
     """
     if m == 0:
-        return lpmn(m, n, phi)[0][-1,-1]
+        return lpmn(m, n, phi_prime)[0][-1,-1]
     else:
         normalization = np.sqrt(2 * np.math.factorial(n - m) / 
                                 np.math.factorial(n + m))
-        return ((-1)**m) * normalization * lpmn(m, n, phi)[0][-1,-1]
+        return ((-1)**m) * normalization * lpmn(m, n, phi_prime)[0][-1,-1]
 
 
-def pnm_der(m, n, phi):
+def pnm_der(m, n, phi_prime):
     """
     return the deivative in regard to phi of the associated legendre wih 
     sin(phi) as an argument
     """
-    sum1 = (n + 1) * np.tan(phi) * s_legendre(m, n, np.sin(phi))
-    sum2 = np.sqrt((n+1)**2 - m**2) * (1/np.cos(phi)) * \
-                s_legendre(m, n+1, np.sin(phi))
+    sum1 = (n + 1) * np.tan(phi_prime) * s_legendre(m, n, np.sin(phi_prime))
+    sum2 = np.sqrt((n+1)**2 - m**2) * (1/np.cos(phi_prime)) * \
+                s_legendre(m, n+1, np.sin(phi_prime))
     return sum1 - sum2
 
 
@@ -109,7 +105,7 @@ def y_prime(lamb, phi_prime, r, t):
         inner_result = 0
         for m in range(n+1):
             prod1 = g(n, m, t) * np.sin(m * lamb) - h(n, m, t) * np.cos(m*lamb)
-            prod2 = m * s_legendre(m, n, phi_prime)
+            prod2 = m * s_legendre(m, n, np.sin(phi_prime))
             inner_result += prod1 * prod2
         result += inner_result * (a / r)**(n + 2)
     return (1/np.cos(phi_prime)) * result
@@ -121,10 +117,92 @@ def z_prime(lamb, phi_prime, r, t):
         inner_result = 0
         for m in range(n+1):
             prod1 = g(n, m, t) * np.cos(m * lamb) + h(n, m, t) * np.sin(m*lamb)
-            prod2 = s_legendre(m, n, phi_prime)
+            prod2 = s_legendre(m, n, np.sin(phi_prime))
             inner_result += prod1 * prod2
         result += inner_result * ((a / r)**(n + 2)) * (n + 1)
     return -1 * result
+
+
+def x_dot_prime(lamb, phi_prime, r, t):
+    result = 0
+    for n in range(1, N+1):
+        inner_result = 0
+        for m in range(n+1):
+            prod1 = g_dot[n, m] * np.cos(m * lamb) + h_dot[n, m] * np.sin(m*lamb)
+            prod2 = pnm_der(m, n, phi_prime)
+            inner_result += prod1 * prod2
+        result += inner_result * (a / r)**(n + 2)
+    return -1 * result
+
+
+def y_dot_prime(lamb, phi_prime, r, t):
+    result = 0
+    for n in range(1, N+1):
+        inner_result = 0
+        for m in range(n+1):
+            prod1 = g_dot[n, m] * np.sin(m * lamb) - h_dot[n, m] * np.cos(m*lamb)
+            prod2 = m * s_legendre(m, n, np.sin(phi_prime))
+            inner_result += prod1 * prod2
+        result += inner_result * (a / r)**(n + 2)
+    return (1/np.cos(phi_prime)) * result
+
+
+def z_dot_prime(lamb, phi_prime, r, t):
+    result = 0
+    for n in range(1, N+1):
+        inner_result = 0
+        for m in range(n+1):
+            prod1 = g_dot[n, m] * np.cos(m * lamb) + h_dot[n, m] * np.sin(m*lamb)
+            prod2 = s_legendre(m, n, np.sin(phi_prime))
+            inner_result += prod1 * prod2
+        result += inner_result * ((a / r)**(n + 2)) * (n + 1)
+    return -1 * result
+
+
+def x(x_prime, z_prime, phi_prime, phi):
+    return x_prime * np.cos(phi_prime - phi) - z_prime * np.sin(phi_prime - phi)
+
+
+def y(y_prime):
+    return y_prime
+
+
+def z(x_prime, z_prime, phi_prime, phi):
+    return x_prime * np.sin(phi_prime - phi) + z_prime * np.cos(phi_prime - phi)
+
+
+def x_dot(x_prime, z_prime, phi_prime, phi):
+    return x_dot_prime * np.cos(phi_prime - phi) - z_dot_prime * np.sin(phi_prime - phi)
+
+
+def y_dot(y_dot_prime):
+    return y_dot_prime
+
+
+def z_dot(x_prime, z_prime, phi_prime, phi):
+    return x_dot_prime * np.sin(phi_prime - phi) + z_dot_prime * np.cos(phi_prime - phi)
+
+
+def H(x, y):
+    return np.sqrt(x**2 + y**2)
+
+
+def f(h, z):
+    return np.sqrt(h**2 + z**2)
+
+
+def i(z, h):
+    if h != 0:
+        return np.arctan(z / h)
+    else:
+        return np.arctan(z / 1e-9)
+
+
+def d(y, x):
+    if x != 0:
+        return np.arctan(y / x)
+    else:
+        return np.arctan(y / 1e-9)
 
 
 if __name__ == "__main__":
@@ -135,6 +213,8 @@ if __name__ == "__main__":
     glon = 240
     glat = glat * (np.pi/180)
     glon = glon * (np.pi/180)
+    phi = glat
+    print(phi)
     print(transform_to_spherical(glon, glat, alt_km))
     lamb, phi_prime, r = transform_to_spherical(glon, glat, alt_km)
     """
@@ -149,7 +229,42 @@ if __name__ == "__main__":
     print(h(2,1,t))
     print(h(2,2,t))
     """
-    #print(s_legendre(1,1,phi_prime))
-    print(x_prime(lamb, phi_prime, r, t))
-    print(y_prime(lamb, phi_prime, r, t))
-    print(z_prime(lamb, phi_prime, r, t))
+
+    x_prime = x_prime(lamb, phi_prime, r, t)
+    y_prime = y_prime(lamb, phi_prime, r, t)
+    z_prime = z_prime(lamb, phi_prime, r, t)
+    print("x_prime: " + str(x_prime))
+    print("y_prime: " + str(y_prime))
+    print("z_prime: " + str(z_prime))
+
+    x_dot_prime = x_dot_prime(lamb, phi_prime, r, t)
+    y_dot_prime = y_dot_prime(lamb, phi_prime, r, t)
+    z_dot_prime = z_dot_prime(lamb, phi_prime, r, t)
+    print("x_dot_prime: " + str(x_dot_prime))
+    print("y_dot_prime: " + str(y_dot_prime))
+    print("z_dot_prime: " + str(z_dot_prime))
+
+    x = x(x_prime, z_prime, phi_prime, phi)
+    y = y(y_prime)
+    z = z(x_prime, z_prime, phi_prime, phi)
+    print("x: " + str(x))
+    print("y: " + str(y))
+    print("z: " + str(z))
+
+    x_dot = x_dot(x_prime, z_prime, phi_prime, phi)
+    y_dot = y_dot(y_dot_prime)
+    z_dot = z_dot(x_prime, z_prime, phi_prime, phi)
+    print("x_dot: " + str(x_dot))
+    print("y_dot: " + str(y_dot))
+    print("z_dot: " + str(z_dot))
+
+    h = H(x, y)
+    f = f(h, z)
+    i = i(z, h)
+    d = d(y, x)
+    print("F: " + str(f))
+    print("H: " + str(h))
+    print("D: " + str(d))
+    print("I: " + str(i))
+
+
