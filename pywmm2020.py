@@ -23,7 +23,37 @@ def wmm_single(glat, glon, alt_km, year_dec):
     alt_km: altitude above WGS 84 ellipsoid in km
     year_dec: decimal year
     """
-    pass
+    glat = glat * np.pi/180
+    glon = glon * np.pi/180
+    t = year_dec
+    h = alt_km * 1000
+    lamb, phi_prime, r = transform_to_spherical(glon, glat, alt_km*1000)
+
+    x_prime = x_prime(lamb, phi_prime, r, t)
+    y_prime = y_prime(lamb, phi_prime, r, t)
+    z_prime = z_prime(lamb, phi_prime, r, t)
+
+    x_dot_prime = x_dot_prime(lamb, phi_prime, r, t)
+    y_dot_prime = y_dot_prime(lamb, phi_prime, r, t)
+    z_dot_prime = z_dot_prime(lamb, phi_prime, r, t)
+
+    x = x(x_prime, z_prime, phi_prime, phi)
+    y = y(y_prime)
+    z = z(x_prime, z_prime, phi_prime, phi)
+
+    x_dot = x_dot(x_prime, z_prime, phi_prime, phi)
+    y_dot = y_dot(y_dot_prime)
+    z_dot = z_dot(x_prime, z_prime, phi_prime, phi)
+
+    H = H(x, y)
+    f = f(h, z)
+    i = i(z, h)
+    d = d(y, x)
+
+    h_dot = h_dot(x, x_dot, y, y_dot, H)
+    f_dot = f_dot(x, x_dot, y, y_dot, z, z_dot, f)
+    i_dot = i_dot(z, z_dot, h, h_dot, f)
+    d_dot = d_dot(x, x_dot, y, y_dot, h)
 
 
 def transform_to_spherical(lamb, phi, h):
@@ -42,7 +72,7 @@ def transform_to_spherical(lamb, phi, h):
     one_over_f = 298.257223563
     f = 1/one_over_f
     e_squared = f * (2 - f)
-    R_c = A / np.sqrt(1 - e_squared * np.sin(phi)**2)
+    R_c = A / np.sqrt(1 - e_squared * (np.sin(phi)**2))
 
     # equations
     p = (R_c + h) * np.cos(phi)
@@ -205,6 +235,22 @@ def d(y, x):
         return np.arctan(y / 1e-9)
 
 
+def h_dot(x, x_dot, y, y_dot, h):
+    return (x * x_dot + y * y_dot) / h
+
+
+def f_dot(x, x_dot, y, y_dot, z, z_dot, f):
+    return (x * x_dot + y * y_dot + z * z_dot) / f
+
+
+def i_dot(z, z_dot, h, h_dot, f):
+    return (h * z_dot - z * h_dot) / f**2
+
+
+def d_dot(x, x_dot, y, y_dot, h):
+    return (x * y_dot - y * x_dot) / h**2
+
+
 if __name__ == "__main__":
     # numerical example
     t = 2022.5
@@ -215,8 +261,8 @@ if __name__ == "__main__":
     glon = glon * (np.pi/180)
     phi = glat
     print(phi)
-    print(transform_to_spherical(glon, glat, alt_km))
-    lamb, phi_prime, r = transform_to_spherical(glon, glat, alt_km)
+    print(transform_to_spherical(glon, glat, alt_km *1000))
+    lamb, phi_prime, r = transform_to_spherical(glon, glat, alt_km*1000)
     """
     print(g(1,0,t))
     print(g(1,1,t))
